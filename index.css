@@ -1,0 +1,7 @@
+body {
+    background: #f8f8f8;
+}
+canvas#c {
+    background: white;
+    border: solid black 1px;
+}
