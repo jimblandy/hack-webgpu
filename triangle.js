@@ -20,16 +20,38 @@ async function main() {
     let code = await fetch_shader('triangle.wgsl');
     let module = device.createShaderModule({ code });
 
-    // Create a rendering pipeline that receives vertex positions from
-    // JS, and draws using a vertex and fragment shader from `module`.
+    // Create a rendering pipeline that receives transformation matrices and
+    // vertex positions from JS, and draws using a vertex
+    // and fragment shader from `module`.
+    let bindgroup_layout = device.createBindGroupLayout({ // GPUBindGroupLayoutDescriptor
+        entries: [
+            { // GPUBindGroupLayoutEntry
+                binding: 0,
+                visibility: GPUShaderStage.VERTEX,
+                buffer: { // GPUBufferBindingLayout
+                    type: "uniform",
+                    minBindingSize: 64,
+                }
+            },
+            { // GPUBindGroupLayoutEntry
+                binding: 1,
+                visibility: GPUShaderStage.VERTEX,
+                buffer: { // GPUBufferBindingLayout
+                    type: "uniform",
+                    minBindingSize: 64,
+                }
+            }
+        ]
+    });
+    
     let pipeline_layout = device.createPipelineLayout({ // GPUPipelineLayoutDescriptor
-        bindGroupLayouts: []
+        bindGroupLayouts: [bindgroup_layout]
     });
     let pipeline = device.createRenderPipeline({ // GPURenderPipelineDescriptor
         layout: pipeline_layout,
         vertex: { // GPUVertexState
             module,
-            entryPoint: 'passthrough',
+            entryPoint: 'vertex_shader',
             buffers: [
                 { // GPUVertexBufferLayout
                     arrayStride: 8,
@@ -38,6 +60,16 @@ async function main() {
                             format: 'float32x2',
                             offset: 0,
                             shaderLocation: 0,
+                        },
+                    ]
+                },
+                { // GPUVertexBufferLayout
+                    arrayStride: 8,
+                    attributes: [
+                        { // GPUVertexAttribute
+                            format: 'float32x2',
+                            offset: 0,
+                            shaderLocation: 1,
                         },
                     ]
                 }
@@ -52,26 +84,101 @@ async function main() {
         }
     });
     
-    // Create a buffer to hold the vertex coordinates.
-    let buffer = device.createBuffer({
+    // Create buffers to hold the transformation matrices.
+    let big_xform_buffer = device.createBuffer({
+        size: 4 * 2 * 2,
+        usage: GPUBufferUsage.UNIFORM,
+        mappedAtCreation: true,
+    });
+    {
+        let array_buffer = big_xform_buffer.getMappedRange();
+        let floats = new Float32Array(array_buffer);
+        for (let i = 0; i < 2; i++) {
+            for (let j = 0; j < 2; j++) {
+                let index = i * 2 + j;
+                floats[index] = i == j ? 1 : 0;
+            }
+        }
+        big_xform_buffer.unmap();
+    }
+
+    let small_xform_buffer = device.createBuffer({
+        size: 4 * 2 * 2,
+        usage: GPUBufferUsage.UNIFORM,
+        mappedAtCreation: true,
+    });
+    {
+        let array_buffer = small_xform_buffer.getMappedRange();
+        let floats = new Float32Array(array_buffer);
+        for (let i = 0; i < 2; i++) {
+            for (let j = 0; j < 2; j++) {
+                let index = i * 2 + j;
+                floats[index] = i == j ? 1 : 0;
+            }
+        }
+        small_xform_buffer.unmap();
+    }
+
+    // Create a bind group to hold the two buffers.
+    let bindgroup = device.createBindGroup({ // GPUBindGroupDescriptor
+        layout: bindgroup_layout,
+        entries: [
+            { // GPUBindGroupEntry
+                binding: 0,
+                resource: { // GPUBufferBinding
+                    buffer: big_xform_buffer,
+                }
+            },
+            { //GPUBindGroupEntry
+                binding: 1,
+                resource: { // GPUBufferBinding
+                    buffer: small_xform_buffer,
+                }
+            },
+        ]            
+    });
+
+    // Create two buffers to hold the `center` and `corner` vertex attributes.
+    let center_buffer = device.createBuffer({
+        size: 4 * 2 * 3 * 3, 
+        usage: GPUBufferUsage.MAP_WRITE | GPUBufferUsage.VERTEX
+    });
+    let corner_buffer = device.createBuffer({
         size: 4 * 2 * 3 * 3, 
         usage: GPUBufferUsage.MAP_WRITE | GPUBufferUsage.VERTEX
     });
 
-    // Map the buffer, and fill in the coordinates.
-    await buffer.mapAsync(GPUMapMode.WRITE);
-    let array_buffer = buffer.getMappedRange();
-    let floats = new Float32Array(array_buffer);
-    for (let i = 0; i < 3; i++) {
-        let angle_i = i * 2 / 3 * Math.PI;
-        for (let j = 0; j < 3; j++) {
-            let angle_j = j * 2 / 3 * Math.PI;
-            let index = (i * 3 + j) * 2;
-            floats[index + 0] = 250 + 125 * Math.cos(angle_i) + 62 * Math.cos(angle_j);
-            floats[index + 1] = 250 + 125 * Math.sin(angle_i) + 62 * Math.sin(angle_j);
+    // Map the center buffer, and fill in the coordinates.
+    {
+        await center_buffer.mapAsync(GPUMapMode.WRITE);
+        let array_buffer = center_buffer.getMappedRange();
+        let floats = new Float32Array(array_buffer);
+        for (let i = 0; i < 3; i++) {
+            let angle_i = i * 2 / 3 * Math.PI;
+            for (let j = 0; j < 3; j++) {
+                let index = (i * 3 + j) * 2;
+                floats[index + 0] = 0.5 * Math.cos(angle_i);
+                floats[index + 1] = 0.5 * Math.sin(angle_i);
+            }
         }
+        center_buffer.unmap();
     }
-    buffer.unmap();
+
+    // Map the corner buffer, and fill in the coordinates.
+    {
+        await corner_buffer.mapAsync(GPUMapMode.WRITE);
+        let array_buffer = corner_buffer.getMappedRange();
+        let floats = new Float32Array(array_buffer);
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                let index = (i * 3 + j) * 2;
+                let angle_j = j * 2 / 3 * Math.PI;
+                floats[index + 0] = 0.5 * Math.cos(angle_j);
+                floats[index + 1] = 0.5 * Math.sin(angle_j);
+            }
+        }
+        corner_buffer.unmap();
+    }
 
     // Record GPU commands to draw the triangles.
     let encoder = device.createCommandEncoder();
@@ -85,7 +192,9 @@ async function main() {
         ]
     });
     render_pass_encoder.setPipeline(pipeline);
-    render_pass_encoder.setVertexBuffer(0, buffer);
+    render_pass_encoder.setBindGroup(0, bindgroup);
+    render_pass_encoder.setVertexBuffer(0, center_buffer);
+    render_pass_encoder.setVertexBuffer(1, corner_buffer);
     render_pass_encoder.draw(9);
     render_pass_encoder.endPass();  // outdated
     let command_buffer = encoder.finish();
