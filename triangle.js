@@ -95,7 +95,7 @@ async function main() {
 
     const error = await device.popErrorScope();
     if (error) {
-        console.log(`error: ${error}`);
+        console.log(`error: ${error.message}`);
     } else {
         console.log("no errors");
     }
