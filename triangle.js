@@ -85,41 +85,18 @@ async function main() {
     });
     
     // Create buffers to hold the transformation matrices.
+    // We will write these in each frame.
     let big_xform_buffer = device.createBuffer({
         size: 4 * 2 * 2,
-        usage: GPUBufferUsage.UNIFORM,
-        mappedAtCreation: true,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
-    {
-        let array_buffer = big_xform_buffer.getMappedRange();
-        let floats = new Float32Array(array_buffer);
-        for (let i = 0; i < 2; i++) {
-            for (let j = 0; j < 2; j++) {
-                let index = i * 2 + j;
-                floats[index] = i == j ? 1 : 0;
-            }
-        }
-        big_xform_buffer.unmap();
-    }
 
     let small_xform_buffer = device.createBuffer({
         size: 4 * 2 * 2,
-        usage: GPUBufferUsage.UNIFORM,
-        mappedAtCreation: true,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
     });
-    {
-        let array_buffer = small_xform_buffer.getMappedRange();
-        let floats = new Float32Array(array_buffer);
-        for (let i = 0; i < 2; i++) {
-            for (let j = 0; j < 2; j++) {
-                let index = i * 2 + j;
-                floats[index] = i == j ? 1 : 0;
-            }
-        }
-        small_xform_buffer.unmap();
-    }
 
-    // Create a bind group to hold the two buffers.
+    // Create a bind group pointing at the two buffers.
     let bindgroup = device.createBindGroup({ // GPUBindGroupDescriptor
         layout: bindgroup_layout,
         entries: [
@@ -180,34 +157,68 @@ async function main() {
         corner_buffer.unmap();
     }
 
-    // Record GPU commands to draw the triangles.
-    let encoder = device.createCommandEncoder();
-    let render_pass_encoder = encoder.beginRenderPass({ // GPURenderPassDescriptor
-        colorAttachments: [
-            { // GPURenderPassColorAttachment
-                view: texture_view,
-                loadValue: { r:0, g:0, b:0.5, a:1 }, // outdated
-                storeOp: "store",
-            }
-        ]
-    });
-    render_pass_encoder.setPipeline(pipeline);
-    render_pass_encoder.setBindGroup(0, bindgroup);
-    render_pass_encoder.setVertexBuffer(0, center_buffer);
-    render_pass_encoder.setVertexBuffer(1, corner_buffer);
-    render_pass_encoder.draw(9);
-    render_pass_encoder.endPass();  // outdated
-    let command_buffer = encoder.finish();
-
-    device.queue.submit([command_buffer]);
-    //await device.queue.onSubmittedWorkDone(); // unimplemented
-
     const error = await device.popErrorScope();
     if (error) {
         console.log(`error: ${error.message}`);
     } else {
         console.log("no errors");
     }
+
+    // Return a Float32Array representing a rotation by `angle` degrees
+    // clockwise as a 2x2 column-major matrix.
+    function rotate(angle) {
+        let a = new Float32Array(4);
+        a[0] = Math.cos(angle);
+        a[1] = Math.sin(angle);
+        a[2] = -a[1];
+        a[3] = a[0];
+
+        return a;
+    }
+
+    function triangles(big_angle, small_angle) {
+        // Populate the transformation matrices.
+        device.queue.writeBuffer(big_xform_buffer, 0, rotate(big_angle).buffer);
+        device.queue.writeBuffer(small_xform_buffer, 0, rotate(small_angle).buffer);
+        
+        // Record GPU commands to draw the triangles.
+        let encoder = device.createCommandEncoder();
+        let render_pass_encoder = encoder.beginRenderPass({ // GPURenderPassDescriptor
+            colorAttachments: [
+                { // GPURenderPassColorAttachment
+                    view: texture_view,
+                    loadValue: { r:0, g:0, b:0.5, a:1 }, // outdated
+                    storeOp: "store",
+                }
+            ]
+        });
+        render_pass_encoder.setPipeline(pipeline);
+        render_pass_encoder.setBindGroup(0, bindgroup);
+        render_pass_encoder.setVertexBuffer(0, center_buffer);
+        render_pass_encoder.setVertexBuffer(1, corner_buffer);
+        render_pass_encoder.draw(9);
+        render_pass_encoder.endPass();  // outdated
+        let command_buffer = encoder.finish();
+
+        device.queue.submit([command_buffer]);
+        //await device.queue.onSubmittedWorkDone(); // unimplemented
+    }
+
+    function frame(timestamp) {
+        device.pushErrorScope("validation");
+        triangles(timestamp / 1000.0 * Math.PI / 4.0,
+                  timestamp / 1000.0 * Math.PI * 2.0);
+        device.popErrorScope()
+            .then((error) => {
+                if (error) {
+                    console.log(`error: ${error.message}`);
+                } else {
+                    window.requestAnimationFrame(frame);
+                }
+            });
+    }
+
+    window.requestAnimationFrame(frame);
 }
 
 async function fetch_shader(url) {
