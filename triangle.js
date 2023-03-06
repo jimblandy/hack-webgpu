@@ -177,7 +177,7 @@ async function main() {
     }
 
     function triangles(big_angle, small_angle) {
-        // Populate the transformation matrices.
+        // Initialize the transformation matrices.
         device.queue.writeBuffer(big_xform_buffer, 0, rotate(big_angle).buffer);
         device.queue.writeBuffer(small_xform_buffer, 0, rotate(small_angle).buffer);
         

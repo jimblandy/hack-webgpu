@@ -5,5 +5,11 @@ events.addEventListener("files-changed", (event) => {
 })
 
 events.onerror = (err) => {
-    console.error("server-sent event source 'event' failed");
+    console.log("server-sent event source 'event' failed");
 };
+
+// Avoid error when page is reloaded.
+// https://bugzilla.mozilla.org/show_bug.cgi?id=833462#c11
+window.addEventListener('beforeunload', () => {
+    events.close();
+});
