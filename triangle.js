@@ -1,11 +1,12 @@
-main()
+main();
 
 async function main() {
     const adapter = await navigator.gpu.requestAdapter();
     const device = await adapter.requestDevice();
+    device.addEventListener("uncapturederror", (event) => {
+        console.log(`Uncaptured WebGPU error: ${event.error.message}`);
+    });
 
-    device.pushErrorScope("validation");
-    
     // Create a WebGPU context for the <canvas> element.
     let context = document.getElementById('c').getContext('webgpu');
     let format = context.getPreferredFormat(adapter);
@@ -15,7 +16,7 @@ async function main() {
     });
     let texture = context.getCurrentTexture();
     let texture_view = texture.createView();
-    
+
     // Create a shader module.
     let code = await fetch_shader('triangle.wgsl');
     let module = device.createShaderModule({ code });
@@ -43,7 +44,7 @@ async function main() {
             }
         ]
     });
-    
+
     let pipeline_layout = device.createPipelineLayout({ // GPUPipelineLayoutDescriptor
         bindGroupLayouts: [bindgroup_layout]
     });
@@ -83,7 +84,7 @@ async function main() {
             }],
         }
     });
-    
+
     // Create buffers to hold the transformation matrices.
     // We will write these in each frame.
     let big_xform_buffer = device.createBuffer({
@@ -155,13 +156,6 @@ async function main() {
             }
         }
         corner_buffer.unmap();
-    }
-
-    const error = await device.popErrorScope();
-    if (error) {
-        console.log(`error: ${error.message}`);
-    } else {
-        console.log("no errors");
     }
 
     // Return a Float32Array representing a rotation by `angle` degrees
