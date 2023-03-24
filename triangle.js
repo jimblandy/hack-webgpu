@@ -18,35 +18,8 @@ let texture_view = texture.createView();
 let code = await fetch_shader('triangle.wgsl');
 let module = device.createShaderModule({ code });
 
-// Create a rendering pipeline that receives transformation matrices and
-// vertex positions from JS, and draws using a vertex
-// and fragment shader from `module`.
-let bindgroup_layout = device.createBindGroupLayout({ // GPUBindGroupLayoutDescriptor
-    entries: [
-        { // GPUBindGroupLayoutEntry
-            binding: 0,
-            visibility: GPUShaderStage.VERTEX,
-            buffer: { // GPUBufferBindingLayout
-                type: "uniform",
-                minBindingSize: 64,
-            }
-        },
-        { // GPUBindGroupLayoutEntry
-            binding: 1,
-            visibility: GPUShaderStage.VERTEX,
-            buffer: { // GPUBufferBindingLayout
-                type: "uniform",
-                minBindingSize: 64,
-            }
-        }
-    ]
-});
-
-let pipeline_layout = device.createPipelineLayout({ // GPUPipelineLayoutDescriptor
-    bindGroupLayouts: [bindgroup_layout]
-});
 let pipeline = device.createRenderPipeline({ // GPURenderPipelineDescriptor
-    layout: pipeline_layout,
+    layout: "auto",
     vertex: { // GPUVertexState
         module,
         entryPoint: 'vertex_shader',
@@ -96,7 +69,7 @@ let small_xform_buffer = device.createBuffer({
 
 // Create a bind group pointing at the two buffers.
 let bindgroup = device.createBindGroup({ // GPUBindGroupDescriptor
-    layout: bindgroup_layout,
+    layout: pipeline.getBindGroupLayout(0),
     entries: [
         { // GPUBindGroupEntry
             binding: 0,
@@ -197,8 +170,8 @@ function triangles(big_angle, small_angle) {
 
 function frame(timestamp) {
     device.pushErrorScope("validation");
-    triangles(timestamp / 1000.0 * Math.PI / 4.0,
-              timestamp / 1000.0 * Math.PI * 2.0);
+    triangles(timestamp / 10000.0 * Math.PI / 4.0,
+              timestamp / 10000.0 * Math.PI * 2.0);
     device.popErrorScope()
         .then((error) => {
             if (error) {
