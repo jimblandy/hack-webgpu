@@ -116,16 +116,17 @@ let bindgroup = device.createBindGroup({ // GPUBindGroupDescriptor
 // Create two buffers to hold the `center` and `corner` vertex attributes.
 let center_buffer = device.createBuffer({
     size: 4 * 2 * 3 * 3, 
-    usage: GPUBufferUsage.MAP_WRITE | GPUBufferUsage.VERTEX
+    usage: GPUBufferUsage.VERTEX,
+    mappedAtCreation: true,
 });
 let corner_buffer = device.createBuffer({
     size: 4 * 2 * 3 * 3, 
-    usage: GPUBufferUsage.MAP_WRITE | GPUBufferUsage.VERTEX
+    usage: GPUBufferUsage.VERTEX,
+    mappedAtCreation: true,
 });
 
 // Map the center buffer, and fill in the coordinates.
 {
-    await center_buffer.mapAsync(GPUMapMode.WRITE);
     let array_buffer = center_buffer.getMappedRange();
     let floats = new Float32Array(array_buffer);
     for (let i = 0; i < 3; i++) {
@@ -141,7 +142,6 @@ let corner_buffer = device.createBuffer({
 
 // Map the corner buffer, and fill in the coordinates.
 {
-    await corner_buffer.mapAsync(GPUMapMode.WRITE);
     let array_buffer = corner_buffer.getMappedRange();
     let floats = new Float32Array(array_buffer);
     for (let i = 0; i < 3; i++) {
