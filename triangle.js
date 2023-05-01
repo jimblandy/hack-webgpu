@@ -1,3 +1,4 @@
+const format = navigator.gpu.getPreferredCanvasFormat();
 const adapter = await navigator.gpu.requestAdapter();
 const device = await adapter.requestDevice();
 device.addEventListener("uncapturederror", (event) => {
@@ -6,7 +7,6 @@ device.addEventListener("uncapturederror", (event) => {
 
 // Create a WebGPU context for the <canvas> element.
 let context = document.getElementById('c').getContext('webgpu');
-let format = context.getPreferredFormat(adapter);
 context.configure({ // GPUCanvasConfiguration
     device,
     format,
@@ -151,7 +151,7 @@ function triangles(big_angle, small_angle) {
         colorAttachments: [
             { // GPURenderPassColorAttachment
                 view: texture_view,
-                loadValue: { r:0, g:0, b:0.5, a:1 }, // outdated
+                loadOp: "clear",
                 storeOp: "store",
             }
         ]
@@ -161,7 +161,7 @@ function triangles(big_angle, small_angle) {
     render_pass_encoder.setVertexBuffer(0, center_buffer);
     render_pass_encoder.setVertexBuffer(1, corner_buffer);
     render_pass_encoder.draw(9);
-    render_pass_encoder.endPass();  // outdated
+    render_pass_encoder.end();
     let command_buffer = encoder.finish();
 
     device.queue.submit([command_buffer]);
