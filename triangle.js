@@ -5,8 +5,8 @@ device.addEventListener("uncapturederror", (event) => {
 });
 
 // Create a WebGPU context for the <canvas> element.
-let context = document.getElementById('c').getContext('webgpu');
 let format = navigator.gpu.getPreferredCanvasFormat(adapter);
+let context = document.getElementById('c').getContext('webgpu');
 context.configure({ // GPUCanvasConfiguration
     device,
     format,
