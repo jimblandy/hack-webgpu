@@ -11,8 +11,6 @@ context.configure({ // GPUCanvasConfiguration
     device,
     format,
 });
-let texture = context.getCurrentTexture();
-let texture_view = texture.createView();
 
 // Create a shader module.
 let code = await fetch_shader('triangle.wgsl');
@@ -140,7 +138,7 @@ function rotate(angle) {
     return a;
 }
 
-function triangles(big_angle, small_angle) {
+function triangles(texture_view, big_angle, small_angle) {
     // Initialize the transformation matrices.
     device.queue.writeBuffer(big_xform_buffer, 0, rotate(big_angle).buffer);
     device.queue.writeBuffer(small_xform_buffer, 0, rotate(small_angle).buffer);
@@ -170,7 +168,11 @@ function triangles(big_angle, small_angle) {
 
 function frame(timestamp) {
     device.pushErrorScope("validation");
-    triangles(timestamp / 10000.0 * Math.PI / 4.0,
+    let texture = context.getCurrentTexture();
+    let texture_view = texture.createView();
+
+    triangles(texture_view,
+              timestamp / 10000.0 * Math.PI / 4.0,
               timestamp / 10000.0 * Math.PI * 2.0);
     device.popErrorScope()
         .then((error) => {
